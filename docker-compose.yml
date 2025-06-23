@@ -1,6 +1,6 @@
 services:
   api:
-    image: balena/open-balena-api:37.3.2
+    image: brutosini/open-balena-api:37.3.2
     restart: unless-stopped
     depends_on:
       - db
@@ -60,7 +60,7 @@ services:
       - /sys/fs/cgroup
     tty: true
   registry:
-    image: balena/open-balena-registry:2.42.0
+    image: brutosini/open-balena-registry:2.42.0
     restart: unless-stopped
     depends_on:
       - redis
@@ -94,7 +94,7 @@ services:
       - /sys/fs/cgroup
     tty: true
   vpn:
-    image: balena/open-balena-vpn:11.32.28
+    image: brutosini/open-balena-vpn:11.32.28
     restart: unless-stopped
     depends_on:
       - api
@@ -127,7 +127,7 @@ services:
       - /sys/fs/cgroup
     tty: true
   db:
-    image: balena/open-balena-db:6.0.0
+    image: brutosini/open-balena-db:6.0.0
     restart: unless-stopped
     volumes:
       - db-data:/var/lib/postgresql/data
@@ -143,7 +143,7 @@ services:
       test: pg_isready -U "$${DB_USER}" -d "$${DB_NAME}"
     tty: true
   s3:
-    image: balena/open-balena-s3:2.28.75
+    image: brutosini/open-balena-s3:2.28.75
     restart: unless-stopped
     volumes:
       - s3-data:/export
@@ -245,7 +245,7 @@ services:
       io.balena.features.supervisor-api: 1
     tty: true
   balena-ca:
-    image: balena/ca-private:0.0.15
+    image: brutosini/ca-private:0.0.15
     restart: unless-stopped
     volumes:
       - pki-data:/pki
@@ -387,7 +387,7 @@ x-base-service-definition:
 x-default-environment:
   DB_NAME: resin
   DB_PASSWORD: docker
-  DB_USER: docker-tos
+  DB_USER: docker
   LOG_LEVEL: DEBUG
   PRODUCTION_MODE: 'true'
 
