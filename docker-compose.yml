@@ -11,7 +11,7 @@ services:
       - resin-data:/balena
     environment:
       DB_NAME: resin
-      DB_PASSWORD: docker
+      DB_PASSWORD: docker-tos
       DB_USER: docker
       LOG_LEVEL: DEBUG
       PRODUCTION_MODE: 'true'
