@@ -3,9 +3,9 @@
     "request": {
       "key": {
         "algo": "${key_algo}",
-        "size": ${key_size}
+        "size": "${key_size}"
       },
-      "hosts": ${hosts},
+      "hosts": "${hosts}",
       "names": [
         {
           "C": "${country}",
@@ -22,7 +22,7 @@
     "request": {
       "key": {
         "algo": "${key_algo}",
-        "size": ${key_size}
+        "size": "${key_size}"
       },
       "hosts": [
         "vpn.${TLD}"
@@ -43,7 +43,7 @@
 	"request": {
 	  "key": {
 		"algo": "${key_algo}",
-		"size": ${key_size}
+		"size": "${key_size}"
 	  },
 	  "hosts": [
 		"api.${TLD}"

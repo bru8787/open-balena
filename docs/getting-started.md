@@ -94,14 +94,14 @@ name and configure records.
 7. Clone the openBalena repository and change directory:
 
    ```bash
-   git clone https://github.com/balena-io/open-balena.git ~/open-balena
+   git clone https://github.com/bru8787/open-balena.git ~/open-balena
    cd ~/open-balena
    ```
 
 8. Start the server on your domain name:
 
    ```bash
-   export DNS_TLD=mydomain.com
+   export DNS_TLD=balena.tosinigroup.cloud
    make up
    ```
 
@@ -197,8 +197,8 @@ for the following DNS providers is currently implemented:
 Obtain a Cloudflare API token with write access to your openBalena domain name records:
 
 ```bash
-export ACME_EMAIL=acme@mydomain.com
-export CLOUDFLARE_API_TOKEN={{token}}
+export ACME_EMAIL=acme@balena.tosinigroup.cloud
+export CLOUDFLARE_API_TOKEN=2R10zSSnU_eyTSurh29gAar8YO3kQUgzIjj9YNNv
 ```
 
 #### Gandi
