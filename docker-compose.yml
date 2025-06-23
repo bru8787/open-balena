@@ -1,88 +1,20 @@
-volumes:
-  builder-certs-ca: {}
-  builder-certs-client: {}
-  builder-data: {}
-  cert-manager-data: {}
-  certs-data: {}
-  db-data: {}
-  pki-data: {}
-  redis-data: {}
-  resin-data: {}
-  s3-data: {}
-
-x-default-healthcheck: &default-healthcheck
-  test: /usr/src/app/docker-hc
-  interval: 45s
-  timeout: 15s
-  retries: 3
-
-x-default-environment: &default-environment
-  # FIXME: hardcoded https://github.com/balena-io/open-balena-db/blob/master/create-resin-db.sh#L4
-  DB_NAME: resin
-  # FIXME: hardcoded https://github.com/balena-io/open-balena-db/blob/master/Dockerfile#L3-L4
-  DB_PASSWORD: docker
-  DB_USER: docker-tos
-  LOG_LEVEL: DEBUG
-  PRODUCTION_MODE: 'true'
-
-x-default-healthcheck-trait: &with-default-healthcheck
-  healthcheck:
-    <<: *default-healthcheck
-
-x-default-volumes-trait: &with-default-volumes
-  volumes:
-    - certs-data:/certs
-    - resin-data:/balena
-
-x-default-privileges-trait: &with-default-privileges
-  cap_add:
-    - SYS_ADMIN
-    - SYS_RESOURCE
-  security_opt:
-    - apparmor=unconfined
-  tmpfs:
-    - /run
-    - /sys/fs/cgroup
-
-x-extended-privileges-trait: &with-extended-privileges
-  security_opt:
-    - apparmor=unconfined
-    - seccomp=unconfined
-
-x-all-privileges-trait: &with-all-privileges
-  privileged: true
-  cap_add:
-    - ALL
-
-x-network-privileges-trait: &with-network-privileges
-  cap_add:
-    - NET_ADMIN
-    - SYS_ADMIN
-    - SYS_RESOURCE
-
-x-base-service-definition: &base-service
-  restart: 'unless-stopped'
-  # for docker-compose only, no effect on balenaCloud
-  env_file:
-    - .env
-  tty: true  # send syastemd logs from containers to stdout
-
 services:
-  # https://github.com/balena-io/open-balena-api
   api:
-    <<: [
-      *base-service,
-      *with-default-healthcheck,
-      *with-default-privileges,
-      *with-default-volumes,
-    ]
     image: brutosini/open-balena-api:37.3.2
+    restart: unless-stopped
     depends_on:
       - db
       - redis
       - s3
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
     environment:
-      <<: *default-environment
+      DB_NAME: resin
+      DB_PASSWORD: docker
+      DB_USER: docker
+      LOG_LEVEL: DEBUG
+      PRODUCTION_MODE: 'true'
       CONTRACTS_PUBLIC_REPO_NAME: contracts
       CONTRACTS_PUBLIC_REPO_OWNER: balena-io
       DB_GENERAL_REPLICA_MAX_USES: 1000
@@ -91,7 +23,6 @@ services:
       DB_PORT: 5432
       DB_STATE_REPLICA_MAX_USES: 1000
       DB_STATE_REPLICA_PORT: 5432
-      DB_USER: docker
       HOSTS_CONFIG: API_HOST:api,DB_HOST:db,DELTA_HOST:delta,HOST:api,REDIS_HOST:redis,TOKEN_AUTH_CERT_ISSUER:api,VPN_HOST:cloudlink,REGISTRY2_HOST:registry2
       IMAGE_STORAGE_BUCKET: resin-production-img-cloudformation
       IMAGE_STORAGE_ENDPOINT: s3.amazonaws.com
@@ -107,23 +38,33 @@ services:
       TRUST_PROXY: 172.16.0.0/12
       VPN_PORT: 443
       WEBRESOURCES_S3_BUCKET: web-resources
-      WEBRESOURCES_S3_REGION: 'us-east-1'  # this is required for minio
-    
-
-  # https://github.com/balena-io/open-balena-registry
+      WEBRESOURCES_S3_REGION: us-east-1
+      DEVICE_CONFIG_OPENVPN_CA: MIIErjCCA5agAwIBAgIUGfO8PxkbaCGh2fdLkT6KInEMu2MwDQYJKoZIhvcNAQELBQAwgYsxCzAJBgNVBAYTAlVTMRkwFwYDVQQKExBDbG91ZEZsYXJlLCBJbmMuMTQwMgYDVQQLEytDbG91ZEZsYXJlIE9yaWdpbiBTU0wgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRMwEQYDVQQIEwpDYWxpZm9ybmlhMB4XDTI1MDYyMzEwMDgwMFoXDTQwMDYxOTEwMDgwMFowYjEZMBcGA1UEChMQQ2xvdWRGbGFyZSwgSW5jLjEdMBsGA1UECxMUQ2xvdWRGbGFyZSBPcmlnaW4gQ0ExJjAkBgNVBAMTHUNsb3VkRmxhcmUgT3JpZ2luIENlcnRpZmljYXRlMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnvcu0MFK7fynPdL+7BtRTA9QhgSc8cotawENeaFAmBiwE5tKxxBSpRRijTJ+qbdVvOfsQpCa15wqkRdxukGzOwfCM857JPC+aU/vJhg1pfLthffAdRj0UZ1MmXO0r2Xo6H54DpsNG3FdBNwwa+dWfVHMFHBSLTrEW2E4YCnd4bUs0W28g/v+/Avyk2VC8oQFWToYYWHkC443gD/kd0DWT+AFmJuxvPB/zhroLfsFjCzqs+ntsh9aA97vQAA4o5IXcmW72z1I4onFCBoOeB4zi6+93TgqdFyyZiKuTgc29pejhZHjtVI9V98R+QzccCbPzMk/GFCVard+m5dWMiAzPwIDAQABo4IBMDCCASwwDgYDVR0PAQH/BAQDAgWgMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBQ+5E81QfbhrPTMMniIsLmOlH4CljAfBgNVHSMEGDAWgBQk6FNXXXw0QIep65TbuuEWePwppDBABggrBgEFBQcBAQQ0MDIwMAYIKwYBBQUHMAGGJGh0dHA6Ly9vY3NwLmNsb3VkZmxhcmUuY29tL29yaWdpbl9jYTAxBgNVHREEKjAoghMqLnRvc2luaWdyb3VwLmNsb3VkghF0b3Npbmlncm91cC5jbG91ZDA4BgNVHR8EMTAvMC2gK6AphidodHRwOi8vY3JsLmNsb3VkZmxhcmUuY29tL29yaWdpbl9jYS5jcmwwDQYJKoZIhvcNAQELBQADggEBALVMwz7F/C9SVG/DKk+G2yHEMxfVBHU/V0Lr/Xb73F/l9m507I5+f3Nmzh5iTtG6fg8dfqUijEhIgn8RtIK7m+5iK4qtOe5CcWfxWxgtsmUyy8wBuUXvZO1DwllxFLaMB8IdVkrOVtZmXRbpa56eyZ007Efh3xkBlQokplluNd86pTTs5kzESnjonvBAvC4tvypnWfK/VWFCgSD3YNnA1al7fOR4lSryE45282jwdYiFPzBxJLCH/ktG2t6Qp7UfuYJ9MHpblrunhSd3KVvpNJrZlZHtEPUZEcMgf7z5IHWDXZfBznkl9avZxRhnT06qbHyNvBm0QTrXl+Hy71jKOuM=
+    env_file:
+      - .env
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    tty: true
   registry:
-    <<: [
-      *base-service,
-      *with-default-healthcheck,
-      *with-default-privileges,
-    ]
     image: brutosini/open-balena-registry:2.42.0
-    volumes:
-      - certs-data:/certs
-      - resin-data:/balena
+    restart: unless-stopped
     depends_on:
       - redis
       - s3
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
     environment:
       COMMON_REGION: open-balena
       HOSTS_CONFIG: REGISTRY2_HOST:registry2,REGISTRY2_TOKEN_AUTH_ISSUER:api,REGISTRY2_TOKEN_AUTH_REALM:api
@@ -133,49 +74,74 @@ services:
       REGISTRY2_S3_BUCKET: registry-data
       REGISTRY2_STORAGEPATH: /data
       TOKENS_CONFIG: REGISTRY2_SECRETKEY:hex
-
-  # https://github.com/balena-io/open-balena-vpn
+    env_file:
+      - .env
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    tty: true
   vpn:
-    <<: [
-      *base-service,
-      *with-default-healthcheck,
-      *with-default-volumes,
-      # privileges in order from minimum to maximum
-      *with-network-privileges,
-      *with-default-privileges,
-    ]
     image: brutosini/open-balena-vpn:11.32.28
+    restart: unless-stopped
     depends_on:
       - api
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
     environment:
       HOSTS_CONFIG: VPN_HOST:cloudlink
       TOKENS_CONFIG: ','
       VPN_HAPROXY_USEPROXYPROTOCOL: 'true'
       VPN_PORT: 443
-      # ensure correct service instance IP is registered with the API
       VPN_SERVICE_REGISTER_INTERFACE: eth0
+    env_file:
+      - .env
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
     devices:
       - /dev/net/tun
-
-  # https://github.com/balena-io/open-balena-db
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    tty: true
   db:
-    <<: *base-service
     image: brutosini/open-balena-db:6.0.0
+    restart: unless-stopped
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
-      <<: *default-environment
+      DB_NAME: resin
+      DB_PASSWORD: docker
+      DB_USER: docker-tos
+      LOG_LEVEL: DEBUG
+      PRODUCTION_MODE: 'true'
+    env_file:
+      - .env
     healthcheck:
       test: pg_isready -U "$${DB_USER}" -d "$${DB_NAME}"
-
-  # https://github.com/balena-io/open-balena-s3
+    tty: true
   s3:
-    <<: [
-      *base-service,
-      *with-default-healthcheck,
-      *with-default-privileges,
-    ]
     image: brutosini/open-balena-s3:2.28.75
+    restart: unless-stopped
     volumes:
       - s3-data:/export
       - certs-data:/certs
@@ -184,101 +150,115 @@ services:
       BUCKETS: registry-data;web-resources
       HOSTS_CONFIG: REGISTRY2_S3_REGION_ENDPOINT:s3,WEBRESOURCES_S3_HOST:s3
       TOKENS_CONFIG: REGISTRY2_S3_KEY:hex,REGISTRY2_S3_SECRET:hex,S3_MINIO_ACCESS_KEY:REGISTRY2_S3_KEY,S3_MINIO_SECRET_KEY:REGISTRY2_S3_SECRET,WEBRESOURCES_S3_ACCESS_KEY:REGISTRY2_S3_KEY,WEBRESOURCES_S3_SECRET_KEY:REGISTRY2_S3_SECRET
-
-  # https://hub.docker.com/_/redis
+    env_file:
+      - .env
+    healthcheck:
+      test: /usr/src/app/docker-hc
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    tty: true
   redis:
-    <<: *base-service
-    # https://redis.io/blog/what-redis-license-change-means-for-our-managed-service-providers/
     image: redis:8.0-alpine
+    restart: unless-stopped
     volumes:
       - redis-data:/data
+    env_file:
+      - .env
     healthcheck:
-      <<: *default-healthcheck
       test: echo INFO | redis-cli | grep redis_version
-
-  # https://github.com/balena-io/open-balena-haproxy
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    tty: true
   haproxy:
-    <<: [
-      *base-service,
-      *with-default-privileges,
-      *with-default-volumes,
-    ]
     build: src/haproxy
-    sysctls:
-      # https://github.com/docker-library/haproxy/issues/160
-      net.ipv4.ip_unprivileged_port_start: 0
-    healthcheck:
-      <<: *default-healthcheck
-      test: true | openssl s_client -connect localhost:443
+    restart: unless-stopped
     ports:
-      # haproxy/http
-      - '80:80/tcp'
-      # haproxy/tcp-router
-      - '443:443/tcp'
-      # haproxy/stats
-      - '1936:1936/tcp'
+      - 80:80/tcp
+      - 443:443/tcp
+      - 1936:1936/tcp
+    volumes:
+      - certs-data:/certs
+      - resin-data:/balena
     environment:
       LOGLEVEL: info
-
-  # dynamically configure Docker network aliases based on DNS_TLD and ALIAS list
-  # allows DNS resolution from systemd-less images on the Docker network
+    env_file:
+      - .env
+    healthcheck:
+      test: true | openssl s_client -connect localhost:443
+      interval: 45s
+      timeout: 15s
+      retries: 3
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    security_opt:
+      - apparmor=unconfined
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    tmpfs:
+      - /run
+      - /sys/fs/cgroup
+    tty: true
   haproxy-sidecar:
-    <<: *base-service
     build: src/haproxy-sidecar
+    restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/host/run/docker.sock
     environment:
       DOCKER_HOST: unix:///host/run/docker.sock
-      # resolved internally as {{service}}.{{dns-tld-without-balena-device-uuid}} to haproxy service
       ALIASES: api,ca,cloudlink,db,delta,logs,redis,registry2,s3,stats,tunnel,postgrest,remote,registry
+    env_file:
+      - .env
     labels:
       io.balena.features.balena-socket: 1
       io.balena.features.supervisor-api: 1
-
-  # https://github.com/balena-io/cert-manager
-  # https://certbot.eff.org/docs/using.html
-  # https://certbot-dns-cloudflare.readthedocs.io/
+    tty: true
   cert-manager:
-    <<: *base-service
     build: src/cert-manager
+    restart: unless-stopped
+    depends_on:
+      - balena-ca
     volumes:
       - cert-manager-data:/etc/letsencrypt
       - certs-data:/certs
       - resin-data:/balena
-    depends_on:
-      - balena-ca
     environment:
-      # wildcard certificate for reverse proxy
       SSH_KEY_NAMES: ','
       SUBJECT_ALTERNATE_NAMES: '*'
+    env_file:
+      - .env
     labels:
       io.balena.features.balena-api: 1
       io.balena.features.supervisor-api: 1
-
-  # https://github.com/balena-io/ca-private
-  # https://github.com/cloudflare/cfssl/blob/master/doc/api/intro.txt
+    tty: true
   balena-ca:
-    <<: *base-service
     image: brutosini/ca-private:0.0.15
+    restart: unless-stopped
     volumes:
       - pki-data:/pki
       - certs-data:/certs
       - resin-data:/balena
+    env_file:
+      - .env
+    labels:
+      io.balena.features.balena-api: 1
+      io.balena.features.supervisor-api: 1
     healthcheck:
       test: curl --silent -I --fail localhost:8888
       interval: 60s
       timeout: 60s
       retries: 10
-    labels:
-      # future expansion
-      io.balena.features.balena-api: 1
-      io.balena.features.supervisor-api: 1
-
-
-
-  # --- the following are not required for runtime operation of openBalena
-
-  # only relevant when running in AWS/EC2
+    tty: true
   tag-sidecar:
     build: src/tag-sidecar
     restart: 'no'
@@ -286,75 +266,61 @@ services:
       ENABLED: 'true'
     labels:
       io.balena.features.balena-api: 1
-
-  # Software Under Test (SUT) tests orchestrator
   sut:
-    <<: [
-      *base-service,
-      *with-extended-privileges,
-      *with-network-privileges,
-    ]
     build: src/balena-tests
-    command: /usr/sbin/balena.sh
+    restart: 'no'
+    volumes:
+      - builder-certs-client:/docker-pki/client
+      - certs-data:/certs
+      - resin-data:/balena
     environment:
       DOCKER_CERT_PATH: /docker-pki/client
       DOCKER_HOST: docker:2376
       DOCKER_TLS_VERIFY: 'true'
       GUEST_IMAGE: /balena/balena.img
-    volumes:
-      - builder-certs-client:/docker-pki/client
-      - certs-data:/certs
-      - resin-data:/balena
+    env_file:
+      - .env
     labels:
       io.balena.features.balena-api: 1
       io.balena.features.supervisor-api: 1
-    restart: 'no'
-
-  # virtual Device Under Test (DUT)
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    command: /usr/sbin/balena.sh
+    security_opt:
+      - apparmor=unconfined
+      - seccomp=unconfined
+    tty: true
   dut:
-    <<: [
-      *base-service,
-      *with-extended-privileges,
-      *with-network-privileges,
-    ]
-    # https://hub.docker.com/r/qemux/qemu
-    # https://github.com/qemus/qemu-docker
     build: src/test-device
-    entrypoint:
-      - /bin/sh
-      - -c
-    command:
-      - /usr/sbin/balena.sh
+    restart: 'no'
+    volumes:
+      - resin-data:/balena
     environment:
       GUEST_IMAGE: /balena/balena.img
       MEMORY: 3072M
       CPU: 4
-    volumes:
-      - resin-data:/balena
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    command:
+      - /usr/sbin/balena.sh
     devices:
       - /dev/net/tun
-    restart: 'no'
-
-  # https://hub.docker.com/_/docker
-  # pseudo(builder) service for balena-tests
-  docker:
-    <<: [
-      *base-service,
-      *with-extended-privileges,
-      *with-network-privileges,
-    ]
-    image: docker:dind
     entrypoint:
       - /bin/sh
-      - -c
-    command:
-      - |
-        set -x
-
-        cp /certs/root-ca.pem /certs/server-ca.pem /usr/local/share/ca-certificates/ \
-          && update-ca-certificates
-
-        exec /usr/local/bin/dockerd-entrypoint.sh
+      - '-c'
+    security_opt:
+      - apparmor=unconfined
+      - seccomp=unconfined
+    tty: true
+  docker:
+    image: docker:dind
+    restart: unless-stopped
     volumes:
       - /sys:/sys
       - builder-certs-ca:/docker-pki/ca
@@ -363,10 +329,100 @@ services:
       - certs-data:/certs
     environment:
       DOCKER_TLS_CERTDIR: /docker-pki
+    env_file:
+      - .env
+    labels:
+      io.balena.features.sysfs: 1
     healthcheck:
       test: docker system info
       interval: 60s
       timeout: 60s
       retries: 5
-    labels:
-      io.balena.features.sysfs: 1
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    command:
+      - |
+        set -x
+
+        cp /certs/root-ca.pem /certs/server-ca.pem /usr/local/share/ca-certificates/ \
+          && update-ca-certificates
+
+        exec /usr/local/bin/dockerd-entrypoint.sh
+    entrypoint:
+      - /bin/sh
+      - '-c'
+    security_opt:
+      - apparmor=unconfined
+      - seccomp=unconfined
+    tty: true
+
+volumes:
+  builder-certs-ca: {}
+  builder-certs-client: {}
+  builder-data: {}
+  cert-manager-data: {}
+  certs-data: {}
+  db-data: {}
+  pki-data: {}
+  redis-data: {}
+  resin-data: {}
+  s3-data: {}
+
+x-all-privileges-trait:
+  privileged: true
+  cap_add:
+    - ALL
+
+x-base-service-definition:
+  restart: unless-stopped
+  env_file:
+    - .env
+  tty: true
+
+x-default-environment:
+  DB_NAME: resin
+  DB_PASSWORD: docker
+  DB_USER: docker-tos
+  LOG_LEVEL: DEBUG
+  PRODUCTION_MODE: 'true'
+
+x-default-healthcheck:
+  test: /usr/src/app/docker-hc
+  interval: 45s
+  timeout: 15s
+  retries: 3
+
+x-default-healthcheck-trait:
+  healthcheck:
+    test: /usr/src/app/docker-hc
+    interval: 45s
+    timeout: 15s
+    retries: 3
+
+x-default-privileges-trait:
+  cap_add:
+    - SYS_ADMIN
+    - SYS_RESOURCE
+  security_opt:
+    - apparmor=unconfined
+  tmpfs:
+    - /run
+    - /sys/fs/cgroup
+
+x-default-volumes-trait:
+  volumes:
+    - certs-data:/certs
+    - resin-data:/balena
+
+x-extended-privileges-trait:
+  security_opt:
+    - apparmor=unconfined
+    - seccomp=unconfined
+
+x-network-privileges-trait:
+  cap_add:
+    - NET_ADMIN
+    - SYS_ADMIN
+    - SYS_RESOURCE
