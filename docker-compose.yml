@@ -76,7 +76,7 @@ services:
       *with-default-privileges,
       *with-default-volumes,
     ]
-    image: brutosini/open-balena-api:37.3.2
+    image: balena/open-balena-api:37.3.2
     depends_on:
       - db
       - redis
@@ -116,7 +116,7 @@ services:
       *with-default-healthcheck,
       *with-default-privileges,
     ]
-    image: brutosini/open-balena-registry:2.42.0
+    image: balena/open-balena-registry:2.42.0
     volumes:
       - certs-data:/certs
       - resin-data:/balena
@@ -143,7 +143,7 @@ services:
       *with-network-privileges,
       *with-default-privileges,
     ]
-    image: brutosini/open-balena-vpn:11.32.28
+    image: balena/open-balena-vpn:11.32.28
     depends_on:
       - api
     environment:
@@ -159,7 +159,7 @@ services:
   # https://github.com/balena-io/open-balena-db
   db:
     <<: *base-service
-    image: brutosini/open-balena-db:6.0.0
+    image: balena/open-balena-db:6.0.0
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
@@ -174,7 +174,7 @@ services:
       *with-default-healthcheck,
       *with-default-privileges,
     ]
-    image: brutosini/open-balena-s3:2.28.75
+    image: balena/open-balena-s3:2.28.75
     volumes:
       - s3-data:/export
       - certs-data:/certs
@@ -258,7 +258,7 @@ services:
   # https://github.com/cloudflare/cfssl/blob/master/doc/api/intro.txt
   balena-ca:
     <<: *base-service
-    image: brutosini/ca-private:0.0.15
+    image: balena/ca-private:0.0.15
     volumes:
       - pki-data:/pki
       - certs-data:/certs
